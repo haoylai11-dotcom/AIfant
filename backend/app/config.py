@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     KUAISHOU_APP_ID: Optional[str] = None
     KUAISHOU_APP_SECRET: Optional[str] = None
 
+    # MediaCrawler integration
+    MEDIACRAWLER_BASE_URL: str = "http://localhost:8001"
+    MEDIACRAWLER_TIMEOUT: float = 30.0
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

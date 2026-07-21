@@ -10,7 +10,7 @@ from pathlib import Path
 
 from app.config import settings
 from app.database import init_db
-from app.routers import videos, imports, exports, coding, audit, search_sessions
+from app.routers import videos, imports, exports, coding, audit, search_sessions, mediacrawler
 
 
 @asynccontextmanager
@@ -53,6 +53,7 @@ app.include_router(exports.router)
 app.include_router(coding.router)
 app.include_router(audit.router)
 app.include_router(search_sessions.router)
+app.include_router(mediacrawler.router)
 
 
 # ── Frontend pages (server-side Jinja2 + HTMX) ──
