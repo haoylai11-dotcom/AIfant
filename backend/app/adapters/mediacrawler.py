@@ -50,29 +50,31 @@ class MediaCrawlerAdapter(VideoAdapter):
                 result.errors.append(f"No data dir: {data_dir}")
                 return result
 
-            # 抓搜索结果 JSON — 找最新创建的
-            json_files = sorted(data_dir.glob("*.json"), key=os.path.getmtime, reverse=True)
+            # MediaCrawler 输出 jsonl 或 json。优先找最新的文件
+            json_files = sorted(data_dir.glob("*.json*"), key=os.path.getmtime, reverse=True)
             if not json_files:
-                result.errors.append(f"No JSON output found in {data_dir}")
+                result.errors.append(f"No output found in {data_dir}")
                 return result
 
-            # 在最近的几个文件中找包含 keyword 的
+            raw = []
             found_file = None
-            for jf in json_files[:5]:
+            for jf in json_files[:10]:
                 try:
                     with open(jf) as f:
-                        d = json.load(f)
-                    if isinstance(d, (list, dict)):
-                        found_file = jf
-                        break
+                        if jf.suffix == ".jsonl":
+                            for line in f:
+                                line = line.strip()
+                                if line:
+                                    raw.append(json.loads(line))
+                        else:
+                            raw = json.load(f)
+                    found_file = jf
+                    break
                 except: continue
 
             if not found_file:
-                result.errors.append("No readable JSON found")
+                result.errors.append("No readable JSON/JSONL found")
                 return result
-
-            with open(found_file) as f:
-                raw = json.load(f)
 
             items = _extract_list(raw)
             videos = [_parse_item(it, platform, keyword) for it in items[:limit]]
