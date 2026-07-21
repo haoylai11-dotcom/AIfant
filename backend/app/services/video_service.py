@@ -92,17 +92,22 @@ async def create_video(
 
 async def get_video_by_id(db: AsyncSession, video_id: str) -> Optional[Video]:
     """Get a video by its UUID."""
-    stmt = select(Video).where(Video.id == video_id)
+    from sqlalchemy.orm import selectinload
+    stmt = (
+        select(Video)
+        .options(selectinload(Video.metric_snapshots))
+        .where(Video.id == video_id)
+    )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
 async def get_video_with_author(db: AsyncSession, video_id: str):
-    """Get video with author relationship loaded."""
-    from sqlalchemy.orm import joinedload
+    """Get video with author and snapshots relationships loaded."""
+    from sqlalchemy.orm import joinedload, selectinload
     stmt = (
         select(Video)
-        .options(joinedload(Video.author))
+        .options(joinedload(Video.author), selectinload(Video.metric_snapshots))
         .where(Video.id == video_id)
     )
     result = await db.execute(stmt)
