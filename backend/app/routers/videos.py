@@ -206,19 +206,35 @@ async def add_snapshot(
 
 def _to_response(video) -> VideoResponse:
     """Convert Video ORM object to VideoResponse."""
-    # Get latest snapshot metrics if available
+    # Get latest snapshot metrics (safe — returns None if not loaded)
     latest_like = None
     latest_comment = None
     latest_share = None
     latest_view = None
     latest_at = None
-    if hasattr(video, 'metric_snapshots') and video.metric_snapshots:
-        latest = video.metric_snapshots[-1]  # Ordered by collected_at asc
-        latest_like = latest.like_count
-        latest_comment = latest.comment_count
-        latest_share = latest.share_count
-        latest_view = latest.view_count
-        latest_at = latest.collected_at
+    try:
+        snaps = video.metric_snapshots
+        if snaps:
+            latest = snaps[-1]
+            latest_like = latest.like_count
+            latest_comment = latest.comment_count
+            latest_share = latest.share_count
+            latest_view = latest.view_count
+            latest_at = latest.collected_at
+    except Exception:
+        pass
+
+    # Author fields (safe)
+    author_name = None
+    follower_count = None
+    account_verified = None
+    try:
+        if video.author:
+            author_name = video.author.author_name_public
+            follower_count = video.author.follower_count
+            account_verified = video.author.account_verified
+    except Exception:
+        pass
 
     return VideoResponse(
         id=video.id,
@@ -240,9 +256,9 @@ def _to_response(video) -> VideoResponse:
         public_at_collection=video.public_at_collection,
         available_at_followup=video.available_at_followup,
         unavailable_reason=video.unavailable_reason,
-        author_name=video.author.author_name_public if video.author else None,
-        follower_count=video.author.follower_count if video.author else None,
-        account_verified=video.author.account_verified if video.author else None,
+        author_name=author_name,
+        follower_count=follower_count,
+        account_verified=account_verified,
         ai_character_present=video.ai_character_present,
         product_category=video.product_category,
         coding_version=video.coding_version,
