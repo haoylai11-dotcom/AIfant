@@ -123,7 +123,15 @@ async def list_videos(
     """
     List videos with filtering and pagination.
     """
-    stmt = select(Video)
+    from sqlalchemy.orm import joinedload, selectinload
+
+    stmt = (
+        select(Video)
+        .options(
+            joinedload(Video.author),
+            selectinload(Video.metric_snapshots),
+        )
+    )
 
     if platform:
         stmt = stmt.where(Video.platform == platform)
