@@ -206,6 +206,20 @@ async def add_snapshot(
 
 def _to_response(video) -> VideoResponse:
     """Convert Video ORM object to VideoResponse."""
+    # Get latest snapshot metrics if available
+    latest_like = None
+    latest_comment = None
+    latest_share = None
+    latest_view = None
+    latest_at = None
+    if hasattr(video, 'metric_snapshots') and video.metric_snapshots:
+        latest = video.metric_snapshots[-1]  # Ordered by collected_at asc
+        latest_like = latest.like_count
+        latest_comment = latest.comment_count
+        latest_share = latest.share_count
+        latest_view = latest.view_count
+        latest_at = latest.collected_at
+
     return VideoResponse(
         id=video.id,
         platform=video.platform,
@@ -235,4 +249,9 @@ def _to_response(video) -> VideoResponse:
         coding_notes=video.coding_notes,
         created_at=video.created_at,
         updated_at=video.updated_at,
+        latest_like_count=latest_like,
+        latest_comment_count=latest_comment,
+        latest_share_count=latest_share,
+        latest_view_count=latest_view,
+        latest_snapshot_at=latest_at,
     )

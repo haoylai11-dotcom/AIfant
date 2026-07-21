@@ -106,6 +106,12 @@ class VideoResponse(BaseModel):
     coding_notes: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    # Latest snapshot metrics
+    latest_like_count: Optional[int] = None
+    latest_comment_count: Optional[int] = None
+    latest_share_count: Optional[int] = None
+    latest_view_count: Optional[int] = None
+    latest_snapshot_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

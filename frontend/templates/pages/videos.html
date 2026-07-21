@@ -133,7 +133,17 @@ function loadVideos(offset) {
                 const coding = v.ai_character_present !== null
                     ? '<span class="text-green-600 text-xs">已编码</span>'
                     : '<span class="text-gray-400 text-xs">未编码</span>';
-                const hasSnapshot = v.latest_snapshot ? '有快照' : '—';
+
+                // Build engagement display from latest snapshot
+                let engagementHtml = '';
+                if (v.latest_snapshot_at) {
+                    const likes = v.latest_like_count != null ? v.latest_like_count.toLocaleString() : '—';
+                    const plays = v.latest_view_count != null ? v.latest_view_count.toLocaleString() : '—';
+                    const comments = v.latest_comment_count != null ? v.latest_comment_count.toLocaleString() : '—';
+                    engagementHtml = `👍${likes} 💬${comments} ▶${plays}`;
+                } else {
+                    engagementHtml = '<span class="text-gray-400 text-xs italic">待录入</span>';
+                }
 
                 html += `<tr class="hover:bg-gray-50">
                     <td class="px-4 py-3 whitespace-nowrap">${platBadge}<div class="text-xs text-gray-400">${collected}</div></td>
@@ -142,7 +152,7 @@ function loadVideos(offset) {
                         <div class="text-xs text-gray-400">${v.collection_keyword || urlShort}</div>
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">${v.author_name || '—'}</td>
-                    <td class="px-4 py-3 text-xs text-gray-500">${hasSnapshot}</td>
+                    <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">${engagementHtml}</td>
                     <td class="px-4 py-3 whitespace-nowrap"><span class="text-xs px-2 py-0.5 rounded ${statusColor}">${statusLabel}</span></td>
                     <td class="px-4 py-3 whitespace-nowrap">${coding}</td>
                     <td class="px-4 py-3 whitespace-nowrap">
