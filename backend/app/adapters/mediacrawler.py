@@ -18,7 +18,9 @@ class MediaCrawlerAdapter(VideoAdapter):
     collection_method = "licensed_provider"
 
     def __init__(self):
-        path = os.getenv("MEDIACRAWLER_PATH", str(Path(__file__).parent.parent.parent.parent / "MediaCrawler"))
+        # Default: MediaCrawler is next to our backend/ directory (i.e. AIfant/backend/MediaCrawler)
+        default_path = Path(__file__).parent.parent.parent / "MediaCrawler"  # backend/MediaCrawler
+        path = os.getenv("MEDIACRAWLER_PATH", str(default_path))
         self.mc_path = Path(path)
 
     async def search_videos(
