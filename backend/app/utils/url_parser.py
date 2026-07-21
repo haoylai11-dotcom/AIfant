@@ -35,6 +35,8 @@ KUAISHOU_PATTERNS = [
     re.compile(r"kuaishou\.com/photo/([A-Za-z0-9]+)"),
     # Alternative: https://live.kuaishou.com/u/xxx/abc123def
     re.compile(r"kuaishou\.com/u/[^/]+/([A-Za-z0-9]+)"),
+    # Short link: https://www.kuaishou.com/f/X-q4jmTBYWEa1pL
+    re.compile(r"kuaishou\.com/f/([A-Za-z0-9_-]+)"),
 ]
 
 
@@ -65,7 +67,7 @@ def parse_video_url(url: str) -> Optional[ParsedVideoUrl]:
         match = pattern.search(url)
         if match:
             video_id = match.group(1)
-            is_short = "v.kuaishou.com" in url
+            is_short = "v.kuaishou.com" in url or "/f/" in url
             return ParsedVideoUrl(
                 platform="kuaishou",
                 platform_video_id=video_id,
