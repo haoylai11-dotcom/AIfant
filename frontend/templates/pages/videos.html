@@ -13,7 +13,7 @@
         <div class="flex gap-3 flex-wrap items-end">
             <div>
                 <label class="block text-xs text-gray-500 mb-1">平台</label>
-                <select id="filter-platform" class="border border-gray-300 rounded px-3 py-1.5 text-sm" hx-get="/api/videos" hx-target="#video-table-body" hx-trigger="change" name="platform">
+                <select id="filter-platform" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="loadVideos(0)">
                     <option value="">全部</option>
                     <option value="douyin">抖音</option>
                     <option value="kuaishou">快手</option>
@@ -21,7 +21,7 @@
             </div>
             <div>
                 <label class="block text-xs text-gray-500 mb-1">复核状态</label>
-                <select id="filter-status" class="border border-gray-300 rounded px-3 py-1.5 text-sm" hx-get="/api/videos" hx-target="#video-table-body" hx-trigger="change" name="verification_status">
+                <select id="filter-status" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="loadVideos(0)">
                     <option value="">全部</option>
                     <option value="unverified">待复核</option>
                     <option value="verified">已复核</option>
@@ -31,7 +31,7 @@
             </div>
             <div>
                 <label class="block text-xs text-gray-500 mb-1">采集方式</label>
-                <select id="filter-method" class="border border-gray-300 rounded px-3 py-1.5 text-sm" hx-get="/api/videos" hx-target="#video-table-body" hx-trigger="change" name="collection_method">
+                <select id="filter-method" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="loadVideos(0)">
                     <option value="">全部</option>
                     <option value="manual_import">手工导入</option>
                     <option value="researcher_browser">浏览器提取</option>
@@ -40,9 +40,9 @@
             </div>
             <div>
                 <label class="block text-xs text-gray-500 mb-1">关键词搜索</label>
-                <input type="text" id="filter-keyword" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48" placeholder="标题/关键词..." hx-get="/api/videos" hx-target="#video-table-body" hx-trigger="keyup changed delay:300ms" name="keyword">
+                <input type="text" id="filter-keyword" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48" placeholder="标题/关键词..." onkeyup="debounceSearch()">
             </div>
-            <button onclick="refreshTable()" class="bg-gray-100 border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 ml-auto">刷新</button>
+            <button onclick="loadVideos(0)" class="bg-gray-100 border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 ml-auto">刷新</button>
         </div>
     </div>
 
@@ -53,7 +53,7 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">平台</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">标题</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">标题 / 链接</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">作者</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">互动</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
@@ -61,17 +61,16 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
                     </tr>
                 </thead>
-                <tbody id="video-table-body" class="bg-white divide-y divide-gray-200" hx-get="/api/videos?limit=50" hx-trigger="load">
+                <tbody id="video-table-body" class="bg-white divide-y divide-gray-200">
                     <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">加载中...</td></tr>
                 </tbody>
             </table>
         </div>
-        <!-- Pagination -->
-        <div id="video-pagination" class="px-4 py-3 border-t border-gray-200 flex justify-between items-center">
+        <div class="px-4 py-3 border-t border-gray-200 flex justify-between items-center">
             <span class="text-sm text-gray-500" id="pagination-info"></span>
             <div class="flex gap-2">
-                <button id="btn-prev" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50" disabled hx-get hx-target="#video-table-body">上一页</button>
-                <button id="btn-next" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50" hx-get hx-target="#video-table-body">下一页</button>
+                <button id="btn-prev" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50" disabled onclick="loadVideos(currentOffset - limit)">上一页</button>
+                <button id="btn-next" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50" onclick="loadVideos(currentOffset + limit)">下一页</button>
             </div>
         </div>
     </div>
@@ -82,14 +81,14 @@
 <script>
 let currentOffset = 0;
 const limit = 50;
-let currentParams = '';
+let searchTimer = null;
 
 function buildUrl() {
     const platform = document.getElementById('filter-platform').value;
     const status = document.getElementById('filter-status').value;
     const method = document.getElementById('filter-method').value;
     const keyword = document.getElementById('filter-keyword').value;
-    const params = new URLSearchParams({limit, offset: currentOffset});
+    const params = new URLSearchParams({limit: String(limit), offset: String(currentOffset)});
     if (platform) params.set('platform', platform);
     if (status) params.set('verification_status', status);
     if (method) params.set('collection_method', method);
@@ -97,86 +96,75 @@ function buildUrl() {
     return '/api/videos?' + params.toString();
 }
 
-function refreshTable() {
-    currentOffset = 0;
-    const url = buildUrl();
-    currentParams = url;
-    document.getElementById('video-table-body').setAttribute('hx-get', url);
-    htmx.trigger('#video-table-body', 'refresh-from-js');
+function debounceSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadVideos(0), 300);
 }
 
-function loadPage(delta) {
-    currentOffset = Math.max(0, currentOffset + delta * limit);
-    const url = buildUrl();
-    currentParams = url;
-    document.getElementById('video-table-body').setAttribute('hx-get', url);
-    htmx.trigger('#video-table-body', 'refresh-from-js');
-}
+function loadVideos(offset) {
+    currentOffset = offset;
+    const tbody = document.getElementById('video-table-body');
+    tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">加载中...</td></tr>';
 
-// Override HTMX to render video rows
-document.getElementById('video-table-body').addEventListener('htmx:afterRequest', function(evt) {
-    if (evt.detail.xhr.responseURL.indexOf('/api/videos') === -1) return;
-    // Let the server response be plain JSON handled by HTMX
-});
-
-// Custom video row rendering via HTMX extension
-htmx.defineExtension('video-table-render', {
-    onEvent: function(name, evt) {
-        if (name === 'htmx:beforeSwap' && evt.detail.target.id === 'video-table-body') {
-            try {
-                const data = JSON.parse(evt.detail.xhr.responseText);
-                if (data.videos) {
-                    let html = '';
-                    data.videos.forEach(v => {
-                        const platformBadge = v.platform === 'douyin'
-                            ? '<span class="text-blue-600 text-xs font-medium">抖音</span>'
-                            : '<span class="text-orange-600 text-xs font-medium">快手</span>';
-                        const statusBadge = {
-                            'unverified': '<span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">待复核</span>',
-                            'verified': '<span class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">已复核</span>',
-                            'needs_review': '<span class="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">需再审</span>',
-                            'flagged': '<span class="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded">已标记</span>',
-                        }[v.verification_status] || v.verification_status;
-                        const codingStatus = v.ai_character_present !== null
-                            ? '<span class="text-green-600 text-xs">已编码</span>'
-                            : '<span class="text-gray-400 text-xs">未编码</span>';
-                        const title = v.video_title || '<span class="text-gray-400 italic">无标题</span>';
-                        const collected = v.first_collected_at ? new Date(v.first_collected_at).toLocaleDateString('zh-CN') : '';
-
-                        html += `
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-4 py-3">${platformBadge}<div class="text-xs text-gray-400">${collected}</div></td>
-                            <td class="px-4 py-3">
-                                <div class="text-sm font-medium text-gray-900 max-w-xs truncate">${title}</div>
-                                <div class="text-xs text-gray-400">${v.collection_keyword || ''}</div>
-                            </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">${v.author_name || '—'}</td>
-                            <td class="px-4 py-3 text-xs text-gray-500">暂无快照</td>
-                            <td class="px-4 py-3">${statusBadge}</td>
-                            <td class="px-4 py-3">${codingStatus}</td>
-                            <td class="px-4 py-3">
-                                <a href="/videos/${v.id}" class="text-blue-600 text-sm hover:underline">查看/编辑</a>
-                            </td>
-                        </tr>`;
-                    });
-                    if (data.videos.length === 0) {
-                        html = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">暂无视频数据，请先导入</td></tr>';
-                    }
-                    evt.detail.serverResponse = html;
-
-                    // Update pagination
-                    document.getElementById('pagination-info').textContent =
-                        `显示 ${data.offset + 1}-${Math.min(data.offset + data.limit, data.total)} / 共 ${data.total} 条`;
-                    document.getElementById('btn-prev').disabled = data.offset === 0;
-                    document.getElementById('btn-next').disabled = data.offset + data.limit >= data.total;
-                    document.getElementById('btn-prev').onclick = () => loadPage(-1);
-                    document.getElementById('btn-next').onclick = () => loadPage(1);
-                }
-            } catch(e) {
-                console.error('Video table render error:', e);
+    fetch(buildUrl())
+        .then(r => r.json())
+        .then(data => {
+            if (!data.videos || data.videos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">暂无视频数据，请先导入</td></tr>';
+                document.getElementById('pagination-info').textContent = '';
+                document.getElementById('btn-prev').disabled = true;
+                document.getElementById('btn-next').disabled = true;
+                return;
             }
-        }
-    }
-});
+
+            const statusLabels = {unverified: '待复核', verified: '已复核', needs_review: '需再审', flagged: '已标记'};
+            const statusColors = {unverified: 'bg-yellow-100 text-yellow-800', verified: 'bg-green-100 text-green-800', needs_review: 'bg-red-100 text-red-800', flagged: 'bg-purple-100 text-purple-800'};
+
+            let html = '';
+            data.videos.forEach(v => {
+                const platBadge = v.platform === 'douyin'
+                    ? '<span class="text-blue-600 text-xs font-medium">抖音</span>'
+                    : '<span class="text-orange-600 text-xs font-medium">快手</span>';
+                const collected = v.first_collected_at ? new Date(v.first_collected_at).toLocaleDateString('zh-CN') : '';
+                const title = v.video_title || '<span class="text-gray-400 italic">无标题</span>';
+                const urlShort = v.video_url ? v.video_url.substring(0, 60) + '...' : '';
+                const statusLabel = statusLabels[v.verification_status] || v.verification_status;
+                const statusColor = statusColors[v.verification_status] || '';
+                const coding = v.ai_character_present !== null
+                    ? '<span class="text-green-600 text-xs">已编码</span>'
+                    : '<span class="text-gray-400 text-xs">未编码</span>';
+                const hasSnapshot = v.latest_snapshot ? '有快照' : '—';
+
+                html += `<tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 whitespace-nowrap">${platBadge}<div class="text-xs text-gray-400">${collected}</div></td>
+                    <td class="px-4 py-3">
+                        <div class="text-sm font-medium text-gray-900 max-w-xs truncate">${title}</div>
+                        <div class="text-xs text-gray-400">${v.collection_keyword || urlShort}</div>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">${v.author_name || '—'}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500">${hasSnapshot}</td>
+                    <td class="px-4 py-3 whitespace-nowrap"><span class="text-xs px-2 py-0.5 rounded ${statusColor}">${statusLabel}</span></td>
+                    <td class="px-4 py-3 whitespace-nowrap">${coding}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <a href="/videos/${v.id}" class="text-blue-600 text-sm hover:underline">查看/编辑</a>
+                    </td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+
+            // Pagination
+            document.getElementById('pagination-info').textContent =
+                `显示 ${data.offset + 1}-${Math.min(data.offset + data.limit, data.total)} / 共 ${data.total} 条`;
+            document.getElementById('btn-prev').disabled = data.offset === 0;
+            document.getElementById('btn-next').disabled = data.offset + data.limit >= data.total;
+        })
+        .catch(err => {
+            tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-red-400">加载失败: ${err.message}</td></tr>`;
+        });
+}
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', () => loadVideos(0));
 </script>
 {% endblock %}
