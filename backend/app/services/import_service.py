@@ -305,7 +305,7 @@ async def import_single_link(
     video_data = {
         "platform": parsed.platform,
         "platform_video_id": parsed.platform_video_id,
-        "video_url": url if not parsed.is_short_url else None,
+        "video_url": url,  # Always store the pasted URL
         "short_url": url if parsed.is_short_url else None,
         "collection_method": "manual_import",
         "data_source": "manual_import",
