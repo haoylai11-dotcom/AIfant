@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — 抖音-快手AI数字人短视频内容分析{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">抖音-快手AI数字人短视频内容分析</h1>
+        <p class="text-sm text-gray-500 mt-1">研究数据管理工具 · 可审计数据集</p>
+    </div>
+
+    <!-- Stats cards -->
+    <div class="grid grid-cols-4 gap-4" hx-get="/api/videos?limit=1" hx-trigger="load" hx-swap="none">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div class="text-sm text-gray-500">总视频数</div>
+            <div class="text-2xl font-bold text-gray-900" id="stat-total">—</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div class="text-sm text-gray-500">抖音</div>
+            <div class="text-2xl font-bold text-blue-600" id="stat-douyin">—</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div class="text-sm text-gray-500">快手</div>
+            <div class="text-2xl font-bold text-orange-600" id="stat-kuaishou">—</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div class="text-sm text-gray-500">待复核</div>
+            <div class="text-2xl font-bold text-red-600" id="stat-unverified">—</div>
+        </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">快速操作</h2>
+        <div class="grid grid-cols-3 gap-4">
+            <a href="/import" class="flex items-center p-4 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition">
+                <span class="text-2xl mr-3">📥</span>
+                <div>
+                    <div class="font-medium text-gray-900">导入视频数据</div>
+                    <div class="text-xs text-gray-500">粘贴链接 / CSV / XLSX / 浏览器提取</div>
+                </div>
+            </a>
+            <a href="/videos" class="flex items-center p-4 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition">
+                <span class="text-2xl mr-3">📋</span>
+                <div>
+                    <div class="font-medium text-gray-900">查看视频列表</div>
+                    <div class="text-xs text-gray-500">浏览 / 筛选 / 复核字段</div>
+                </div>
+            </a>
+            <a href="/coding" class="flex items-center p-4 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition">
+                <span class="text-2xl mr-3">🏷️</span>
+                <div>
+                    <div class="font-medium text-gray-900">内容编码</div>
+                    <div class="text-xs text-gray-500">人工编码 / 双人比对 / 信度计算</div>
+                </div>
+            </a>
+            <a href="/export" class="flex items-center p-4 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition">
+                <span class="text-2xl mr-3">📤</span>
+                <div>
+                    <div class="font-medium text-gray-900">导出数据</div>
+                    <div class="text-xs text-gray-500">CSV / XLSX / JSON / 方法附录</div>
+                </div>
+            </a>
+            <a href="/quality" class="flex items-center p-4 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition">
+                <span class="text-2xl mr-3">📊</span>
+                <div>
+                    <div class="font-medium text-gray-900">数据质量报告</div>
+                    <div class="text-xs text-gray-500">字段完整性 / 缺失统计</div>
+                </div>
+            </a>
+            <a href="/audit" class="flex items-center p-4 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition">
+                <span class="text-2xl mr-3">🔍</span>
+                <div>
+                    <div class="font-medium text-gray-900">审计日志</div>
+                    <div class="text-xs text-gray-500">修改记录 / 可追溯</div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Research compliance notice -->
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div class="flex">
+            <span class="text-lg mr-3">⚠️</span>
+            <div>
+                <h3 class="text-sm font-semibold text-yellow-800">合规提醒</h3>
+                <ul class="text-xs text-yellow-700 mt-1 space-y-0.5">
+                    <li>• 仅采集研究者有权访问的公开信息</li>
+                    <li>• 所有平台用户ID和评论者ID已进行哈希化处理</li>
+                    <li>• 互动指标不可见时保存为null，不可自动转为0</li>
+                    <li>• 视频和评论引用支持去标识化</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Fetch dashboard stats
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/videos?limit=1').then(r => r.json()).then(data => {
+        document.getElementById('stat-total').textContent = data.total;
+    });
+    fetch('/api/videos?platform=douyin&limit=1').then(r => r.json()).then(data => {
+        document.getElementById('stat-douyin').textContent = data.total;
+    });
+    fetch('/api/videos?platform=kuaishou&limit=1').then(r => r.json()).then(data => {
+        document.getElementById('stat-kuaishou').textContent = data.total;
+    });
+    fetch('/api/videos?verification_status=unverified&limit=1').then(r => r.json()).then(data => {
+        document.getElementById('stat-unverified').textContent = data.total;
+    });
+});
+</script>
+{% endblock %}

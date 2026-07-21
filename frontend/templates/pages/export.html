@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}导出数据 — 抖音-快手AI数字人短视频内容分析{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-bold text-gray-900">导出数据</h1>
+
+    <!-- Export configuration -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">导出视频数据</h2>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">导出格式</label>
+                <select id="export-format" class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                    <option value="csv">CSV (逗号分隔，Excel可读)</option>
+                    <option value="xlsx">XLSX (Excel原生格式)</option>
+                    <option value="json">JSON (适合程序处理)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">平台筛选</label>
+                <select id="export-platform" class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                    <option value="">全部平台</option>
+                    <option value="douyin">仅抖音</option>
+                    <option value="kuaishou">仅快手</option>
+                </select>
+            </div>
+        </div>
+        <button onclick="doExport()" class="bg-blue-600 text-white px-6 py-2 rounded text-sm hover:bg-blue-700">导出视频数据</button>
+        <div id="export-result" class="mt-3 text-sm"></div>
+    </div>
+
+    <!-- Methods appendix -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">研究方法附录</h2>
+        <p class="text-sm text-gray-500 mb-3">生成包含检索词、检索时间、样本筛选流程、字段缺失情况的JSON格式研究方法附录，可直接嵌入论文方法部分。</p>
+        <button onclick="exportMethodsAppendix()" class="bg-green-600 text-white px-6 py-2 rounded text-sm hover:bg-green-700">生成方法附录</button>
+        <div id="appendix-result" class="mt-3"></div>
+    </div>
+
+    <!-- Quality report export -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">数据质量报告</h2>
+        <p class="text-sm text-gray-500 mb-3">生成包含字段完整性和缺失统计的数据质量报告。</p>
+        <div class="flex gap-3">
+            <button onclick="exportQualityReport()" class="bg-indigo-600 text-white px-6 py-2 rounded text-sm hover:bg-indigo-700">查看质量报告</button>
+            <button onclick="downloadQualityReportJSON()" class="bg-gray-100 border border-gray-300 px-6 py-2 rounded text-sm hover:bg-gray-200">下载JSON</button>
+        </div>
+        <div id="quality-result" class="mt-4"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function doExport() {
+    const format = document.getElementById('export-format').value;
+    const platform = document.getElementById('export-platform').value;
+
+    document.getElementById('export-result').innerHTML = '<span class="text-blue-600">导出中...</span>';
+
+    fetch('/api/export/videos', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({format, platform: platform || null})
+    }).then(r => {
+        const disposition = r.headers.get('Content-Disposition');
+        const filename = disposition ? disposition.split('filename=')[1] : 'video_export.' + format;
+        return r.blob().then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            document.getElementById('export-result').innerHTML =
+                '<span class="text-green-600">✓ 导出成功: ' + filename + '</span>';
+        });
+    }).catch(err => {
+        document.getElementById('export-result').innerHTML =
+            '<span class="text-red-600">导出失败</span>';
+    });
+}
+
+function exportMethodsAppendix() {
+    document.getElementById('appendix-result').innerHTML = '<span class="text-blue-600">生成中...</span>';
+
+    fetch('/api/export/methods-appendix')
+        .then(r => r.json())
+        .then(data => {
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'methods_appendix_' + new Date().toISOString().slice(0,10) + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+
+            // Also show preview
+            let html = '<div class="text-green-600 text-sm mb-2">✓ 已下载</div>';
+            html += '<details class="mt-2"><summary class="text-sm text-blue-600 cursor-pointer">预览</summary>';
+            html += '<div class="mt-2 p-3 bg-gray-50 rounded text-xs font-mono max-h-60 overflow-y-auto">';
+            html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            html += '</div></details>';
+            document.getElementById('appendix-result').innerHTML = html;
+        });
+}
+
+function exportQualityReport() {
+    fetch('/api/export/quality-report')
+        .then(r => r.json())
+        .then(data => {
+            let html = '<div class="space-y-3">';
+            html += '<div class="grid grid-cols-4 gap-2 text-sm">';
+            html += '<div class="bg-blue-50 rounded p-2"><div class="text-xs text-gray-500">总视频数</div><div class="font-bold">' + data.total_videos + '</div></div>';
+            html += '<div class="bg-blue-50 rounded p-2"><div class="text-xs text-gray-500">抖音</div><div class="font-bold">' + data.by_platform.douyin + '</div></div>';
+            html += '<div class="bg-orange-50 rounded p-2"><div class="text-xs text-gray-500">快手</div><div class="font-bold">' + data.by_platform.kuaishou + '</div></div>';
+            html += '<div class="bg-gray-50 rounded p-2"><div class="text-xs text-gray-500">快照数</div><div class="font-bold">' + data.latest_snapshot_count + '</div></div>';
+            html += '</div>';
+
+            html += '<h3 class="text-sm font-semibold mt-2">字段完整性</h3>';
+            html += '<div class="max-h-60 overflow-y-auto"><table class="min-w-full text-xs">';
+            html += '<thead><tr><th class="text-left py-1">字段</th><th class="text-right py-1">有值</th><th class="text-right py-1">缺失</th><th class="text-right py-1">完整率</th></tr></thead><tbody>';
+            for (const [field, stats] of Object.entries(data.field_completeness)) {
+                const rate = (stats.rate * 100).toFixed(1);
+                const color = stats.rate >= 0.8 ? 'text-green-600' : stats.rate >= 0.5 ? 'text-yellow-600' : 'text-red-600';
+                html += '<tr class="border-t border-gray-100"><td class="py-1">' + field + '</td><td class="text-right py-1">' + stats.present + '</td><td class="text-right py-1">' + stats.missing + '</td><td class="text-right py-1 ' + color + ' font-medium">' + rate + '%</td></tr>';
+            }
+            html += '</tbody></table></div>';
+            html += '</div>';
+            document.getElementById('quality-result').innerHTML = html;
+        });
+}
+
+function downloadQualityReportJSON() {
+    fetch('/api/export/quality-report')
+        .then(r => r.json())
+        .then(data => {
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'quality_report_' + new Date().toISOString().slice(0,10) + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+}
+</script>
+{% endblock %}

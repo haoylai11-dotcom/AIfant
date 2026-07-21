@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}数据质量报告 — 抖音-快手AI数字人短视频内容分析{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-bold text-gray-900">数据质量报告</h1>
+
+    <div id="quality-report-content" hx-get="/api/export/quality-report" hx-trigger="load" hx-swap="innerHTML">
+        <div class="text-center text-gray-400 py-12">加载中...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id !== 'quality-report-content') return;
+    try {
+        const data = JSON.parse(evt.detail.xhr.responseText);
+        let html = '';
+
+        // Summary cards
+        html += '<div class="grid grid-cols-5 gap-4 mb-6">';
+        html += buildCard('总视频数', data.total_videos, 'text-blue-600', 'bg-blue-50');
+        html += buildCard('抖音', data.by_platform.douyin, 'text-blue-600', 'bg-blue-50');
+        html += buildCard('快手', data.by_platform.kuaishou, 'text-orange-600', 'bg-orange-50');
+        html += buildCard('指标快照', data.latest_snapshot_count, 'text-indigo-600', 'bg-indigo-50');
+        html += buildCard('已复核', data.by_verification_status.verified, 'text-green-600', 'bg-green-50');
+        html += '</div>';
+
+        // Verification status breakdown
+        html += '<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">';
+        html += '<h3 class="text-sm font-semibold text-gray-700 mb-2">复核状态分布</h3>';
+        html += '<div class="flex gap-4">';
+        for (const [status, count] of Object.entries(data.by_verification_status)) {
+            const label = {unverified: '待复核', verified: '已复核', needs_review: '需再审', flagged: '已标记'}[status] || status;
+            const color = {unverified: 'bg-yellow-100 text-yellow-800', verified: 'bg-green-100 text-green-800', needs_review: 'bg-red-100 text-red-800', flagged: 'bg-purple-100 text-purple-800'}[status] || '';
+            html += `<div class="${color} rounded px-3 py-1 text-sm">${label}: ${count}</div>`;
+        }
+        html += '</div></div>';
+
+        // Field completeness table
+        html += '<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">';
+        html += '<h2 class="text-lg font-semibold text-gray-900 mb-4">字段完整性分析</h2>';
+        html += '<div class="max-h-96 overflow-y-auto"><table class="min-w-full text-sm">';
+        html += '<thead class="bg-gray-50"><tr><th class="text-left px-4 py-2">字段</th><th class="text-right px-4 py-2">有值</th><th class="text-right px-4 py-2">缺失</th><th class="text-right px-4 py-2">完整率</th><th class="px-4 py-2">可视化</th></tr></thead><tbody>';
+
+        for (const [field, stats] of Object.entries(data.field_completeness)) {
+            const rate = stats.rate;
+            const pct = (rate * 100).toFixed(1);
+            const color = rate >= 0.8 ? 'text-green-600' : rate >= 0.5 ? 'text-yellow-600' : 'text-red-600';
+            const barColor = rate >= 0.8 ? 'bg-green-500' : rate >= 0.5 ? 'bg-yellow-500' : 'bg-red-500';
+
+            html += `<tr class="border-t border-gray-100">
+                <td class="px-4 py-2 text-gray-700">${field}</td>
+                <td class="px-4 py-2 text-right text-gray-600">${stats.present}</td>
+                <td class="px-4 py-2 text-right text-gray-400">${stats.missing}</td>
+                <td class="px-4 py-2 text-right ${color} font-medium">${pct}%</td>
+                <td class="px-4 py-2"><div class="w-24 bg-gray-100 rounded h-2"><div class="${barColor} rounded h-2" style="width:${pct}%"></div></div></td>
+            </tr>`;
+        }
+        html += '</tbody></table></div></div>';
+
+        evt.detail.target.innerHTML = html;
+    } catch(e) {
+        evt.detail.target.innerHTML = '<div class="text-red-500">报告加载失败</div>';
+    }
+});
+
+function buildCard(label, value, textColor, bgColor) {
+    return `<div class="${bgColor} rounded-lg p-3 text-center">
+        <div class="text-xs text-gray-500">${label}</div>
+        <div class="text-2xl font-bold ${textColor}">${value}</div>
+    </div>`;
+}
+</script>
+{% endblock %}

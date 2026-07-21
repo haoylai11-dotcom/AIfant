@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}内容编码 — 抖音-快手AI数字人短视频内容分析{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-900">内容编码</h1>
+        <div class="flex gap-2">
+            <select id="coder-select" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+                <option value="">选择编码者...</option>
+            </select>
+            <button onclick="loadMyTasks()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">我的任务</button>
+        </div>
+    </div>
+
+    <!-- Coding tasks list -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">编码任务</h2>
+        <div id="coding-tasks">
+            <div class="text-sm text-gray-400">请先选择编码者</div>
+        </div>
+    </div>
+
+    <!-- Inter-coder reliability -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">编码者信度分析</h2>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">编码者1</label>
+                <select id="reli-coder1" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"></select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">编码者2</label>
+                <select id="reli-coder2" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"></select>
+            </div>
+        </div>
+        <div class="mb-4">
+            <label class="block text-xs font-medium text-gray-700 mb-1">编码字段（多选）</label>
+            <div class="flex flex-wrap gap-2" id="field-checkboxes">
+                <label class="text-xs"><input type="checkbox" value="ai_character_present" checked> AI角色出现</label>
+                <label class="text-xs"><input type="checkbox" value="ai_identity_disclosed"> AI身份披露</label>
+                <label class="text-xs"><input type="checkbox" value="kinship_address_present"> 亲属称谓</label>
+                <label class="text-xs"><input type="checkbox" value="grandchild_role_enactment"> 孙辈角色扮演</label>
+                <label class="text-xs"><input type="checkbox" value="care_language_present"> 关怀语言</label>
+                <label class="text-xs"><input type="checkbox" value="gift_language_present"> 礼物语言</label>
+                <label class="text-xs"><input type="checkbox" value="emotional_appeal"> 情感诉求</label>
+                <label class="text-xs"><input type="checkbox" value="rational_appeal"> 理性诉求</label>
+                <label class="text-xs"><input type="checkbox" value="product_category"> 产品类别</label>
+                <label class="text-xs"><input type="checkbox" value="health_claim_present"> 健康声称</label>
+                <label class="text-xs"><input type="checkbox" value="purchase_instruction_present"> 购买指引</label>
+            </div>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="computeReliability('cohens_kappa')" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
+                Cohen's Kappa
+            </button>
+            <button onclick="computeReliability('krippendorff_alpha')" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">
+                Krippendorff's Alpha
+            </button>
+        </div>
+        <div id="reliability-result" class="mt-4"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load coders on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Hardcoded for MVP — in production load from /api/users
+    const coders = ['coder_1', 'coder_2', 'coder_3', 'coder_4'];
+    ['coder-select', 'reli-coder1', 'reli-coder2'].forEach(selectId => {
+        const sel = document.getElementById(selectId);
+        coders.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = c;
+            sel.appendChild(opt);
+        });
+    });
+});
+
+function loadMyTasks() {
+    const coderId = document.getElementById('coder-select').value;
+    if (!coderId) { showToast('请选择编码者', 'error'); return; }
+
+    fetch('/api/coding/tasks/' + coderId)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.videos.length) {
+                document.getElementById('coding-tasks').innerHTML =
+                    '<div class="text-sm text-gray-400">暂无编码任务。请在视频详情页面分配编码任务。</div>';
+                return;
+            }
+            let html = `<div class="text-xs text-gray-500 mb-2">共 ${data.videos.length} 个待编码视频</div>`;
+            html += '<div class="space-y-2 max-h-96 overflow-y-auto">';
+            data.videos.forEach(v => {
+                html += `<div class="flex items-center justify-between p-3 border border-gray-100 rounded hover:bg-gray-50">
+                    <div>
+                        <div class="text-sm font-medium text-gray-800">${v.video_title || '无标题'}</div>
+                        <div class="text-xs text-gray-400">${v.platform} · AI角色: ${v.ai_character_present != null ? (v.ai_character_present ? '是' : '否') : '未编码'}</div>
+                    </div>
+                    <div class="flex gap-2">
+                        <span class="text-xs ${v.verification_status === 'verified' ? 'text-green-600' : 'text-yellow-600'}">${v.verification_status}</span>
+                        <a href="/videos/${v.id}" class="text-sm text-blue-600 hover:underline">编辑编码</a>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            document.getElementById('coding-tasks').innerHTML = html;
+        });
+}
+
+function computeReliability(metric) {
+    const coder1 = document.getElementById('reli-coder1').value;
+    const coder2 = document.getElementById('reli-coder2').value;
+    if (!coder1 || !coder2) { showToast('请选择两位编码者', 'error'); return; }
+
+    const fields = [];
+    document.querySelectorAll('#field-checkboxes input[type=checkbox]:checked').forEach(cb => {
+        fields.push(cb.value);
+    });
+
+    document.getElementById('reliability-result').innerHTML = '<span class="text-blue-600 text-sm">计算中...</span>';
+
+    fetch('/api/coding/compare', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            coder_ids: [coder1, coder2],
+            fields: fields,
+            metric: metric,
+        })
+    }).then(r => r.json()).then(data => {
+        let html = '<div class="space-y-2">';
+        const metricLabel = metric === 'cohens_kappa' ? "Cohen's κ" : "Krippendorff's α";
+        data.forEach(item => {
+            const valueColor = item.value >= 0.75 ? 'text-green-600' : item.value >= 0.60 ? 'text-yellow-600' : 'text-red-600';
+            html += `<div class="flex items-center justify-between p-2 border border-gray-100 rounded text-sm">
+                <span class="text-gray-700">${item.field}</span>
+                <span class="${valueColor} font-bold">${metricLabel} = ${(item.value*100).toFixed(1)}%</span>
+                <span class="text-xs text-gray-400">(一致${item.agreement_count} / 不一致${item.disagreement_count} / 共${item.n_compared})</span>
+            </div>`;
+        });
+        if (data.length === 0) {
+            html += '<div class="text-sm text-gray-400">暂无足够数据计算信度。请确保两位编码者已对相同视频完成编码。</div>';
+        }
+        html += '</div>';
+        document.getElementById('reliability-result').innerHTML = html;
+    });
+}
+</script>
+{% endblock %}

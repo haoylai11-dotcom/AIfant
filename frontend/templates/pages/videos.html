@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}视频列表 — 抖音-快手AI数字人短视频内容分析{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-900">视频列表</h1>
+        <a href="/import" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">+ 导入视频</a>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div class="flex gap-3 flex-wrap items-end">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">平台</label>
+                <select id="filter-platform" class="border border-gray-300 rounded px-3 py-1.5 text-sm" hx-get="/api/videos" hx-target="#video-table-body" hx-trigger="change" name="platform">
+                    <option value="">全部</option>
+                    <option value="douyin">抖音</option>
+                    <option value="kuaishou">快手</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">复核状态</label>
+                <select id="filter-status" class="border border-gray-300 rounded px-3 py-1.5 text-sm" hx-get="/api/videos" hx-target="#video-table-body" hx-trigger="change" name="verification_status">
+                    <option value="">全部</option>
+                    <option value="unverified">待复核</option>
+                    <option value="verified">已复核</option>
+                    <option value="needs_review">需再审</option>
+                    <option value="flagged">已标记</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">采集方式</label>
+                <select id="filter-method" class="border border-gray-300 rounded px-3 py-1.5 text-sm" hx-get="/api/videos" hx-target="#video-table-body" hx-trigger="change" name="collection_method">
+                    <option value="">全部</option>
+                    <option value="manual_import">手工导入</option>
+                    <option value="researcher_browser">浏览器提取</option>
+                    <option value="official_api">官方API</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">关键词搜索</label>
+                <input type="text" id="filter-keyword" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48" placeholder="标题/关键词..." hx-get="/api/videos" hx-target="#video-table-body" hx-trigger="keyup changed delay:300ms" name="keyword">
+            </div>
+            <button onclick="refreshTable()" class="bg-gray-100 border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 ml-auto">刷新</button>
+        </div>
+    </div>
+
+    <!-- Video table -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">平台</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">标题</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">作者</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">互动</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">编码</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="video-table-body" class="bg-white divide-y divide-gray-200" hx-get="/api/videos?limit=50" hx-trigger="load">
+                    <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- Pagination -->
+        <div id="video-pagination" class="px-4 py-3 border-t border-gray-200 flex justify-between items-center">
+            <span class="text-sm text-gray-500" id="pagination-info"></span>
+            <div class="flex gap-2">
+                <button id="btn-prev" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50" disabled hx-get hx-target="#video-table-body">上一页</button>
+                <button id="btn-next" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50" hx-get hx-target="#video-table-body">下一页</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentOffset = 0;
+const limit = 50;
+let currentParams = '';
+
+function buildUrl() {
+    const platform = document.getElementById('filter-platform').value;
+    const status = document.getElementById('filter-status').value;
+    const method = document.getElementById('filter-method').value;
+    const keyword = document.getElementById('filter-keyword').value;
+    const params = new URLSearchParams({limit, offset: currentOffset});
+    if (platform) params.set('platform', platform);
+    if (status) params.set('verification_status', status);
+    if (method) params.set('collection_method', method);
+    if (keyword) params.set('keyword', keyword);
+    return '/api/videos?' + params.toString();
+}
+
+function refreshTable() {
+    currentOffset = 0;
+    const url = buildUrl();
+    currentParams = url;
+    document.getElementById('video-table-body').setAttribute('hx-get', url);
+    htmx.trigger('#video-table-body', 'refresh-from-js');
+}
+
+function loadPage(delta) {
+    currentOffset = Math.max(0, currentOffset + delta * limit);
+    const url = buildUrl();
+    currentParams = url;
+    document.getElementById('video-table-body').setAttribute('hx-get', url);
+    htmx.trigger('#video-table-body', 'refresh-from-js');
+}
+
+// Override HTMX to render video rows
+document.getElementById('video-table-body').addEventListener('htmx:afterRequest', function(evt) {
+    if (evt.detail.xhr.responseURL.indexOf('/api/videos') === -1) return;
+    // Let the server response be plain JSON handled by HTMX
+});
+
+// Custom video row rendering via HTMX extension
+htmx.defineExtension('video-table-render', {
+    onEvent: function(name, evt) {
+        if (name === 'htmx:beforeSwap' && evt.detail.target.id === 'video-table-body') {
+            try {
+                const data = JSON.parse(evt.detail.xhr.responseText);
+                if (data.videos) {
+                    let html = '';
+                    data.videos.forEach(v => {
+                        const platformBadge = v.platform === 'douyin'
+                            ? '<span class="text-blue-600 text-xs font-medium">抖音</span>'
+                            : '<span class="text-orange-600 text-xs font-medium">快手</span>';
+                        const statusBadge = {
+                            'unverified': '<span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">待复核</span>',
+                            'verified': '<span class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">已复核</span>',
+                            'needs_review': '<span class="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">需再审</span>',
+                            'flagged': '<span class="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded">已标记</span>',
+                        }[v.verification_status] || v.verification_status;
+                        const codingStatus = v.ai_character_present !== null
+                            ? '<span class="text-green-600 text-xs">已编码</span>'
+                            : '<span class="text-gray-400 text-xs">未编码</span>';
+                        const title = v.video_title || '<span class="text-gray-400 italic">无标题</span>';
+                        const collected = v.first_collected_at ? new Date(v.first_collected_at).toLocaleDateString('zh-CN') : '';
+
+                        html += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3">${platformBadge}<div class="text-xs text-gray-400">${collected}</div></td>
+                            <td class="px-4 py-3">
+                                <div class="text-sm font-medium text-gray-900 max-w-xs truncate">${title}</div>
+                                <div class="text-xs text-gray-400">${v.collection_keyword || ''}</div>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">${v.author_name || '—'}</td>
+                            <td class="px-4 py-3 text-xs text-gray-500">暂无快照</td>
+                            <td class="px-4 py-3">${statusBadge}</td>
+                            <td class="px-4 py-3">${codingStatus}</td>
+                            <td class="px-4 py-3">
+                                <a href="/videos/${v.id}" class="text-blue-600 text-sm hover:underline">查看/编辑</a>
+                            </td>
+                        </tr>`;
+                    });
+                    if (data.videos.length === 0) {
+                        html = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">暂无视频数据，请先导入</td></tr>';
+                    }
+                    evt.detail.serverResponse = html;
+
+                    // Update pagination
+                    document.getElementById('pagination-info').textContent =
+                        `显示 ${data.offset + 1}-${Math.min(data.offset + data.limit, data.total)} / 共 ${data.total} 条`;
+                    document.getElementById('btn-prev').disabled = data.offset === 0;
+                    document.getElementById('btn-next').disabled = data.offset + data.limit >= data.total;
+                    document.getElementById('btn-prev').onclick = () => loadPage(-1);
+                    document.getElementById('btn-next').onclick = () => loadPage(1);
+                }
+            } catch(e) {
+                console.error('Video table render error:', e);
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

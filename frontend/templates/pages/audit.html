@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}审计日志 — 抖音-快手AI数字人短视频内容分析{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-bold text-gray-900">审计日志</h1>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div class="flex gap-3 items-end">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">表名</label>
+                <select id="audit-table" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="loadAudit()">
+                    <option value="">全部</option>
+                    <option value="videos">videos</option>
+                    <option value="authors">authors</option>
+                    <option value="comments">comments</option>
+                    <option value="coding_records">coding_records</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">记录ID</label>
+                <input type="text" id="audit-record-id" class="border border-gray-300 rounded px-3 py-1.5 text-sm" placeholder="可选">
+            </div>
+            <button onclick="loadAudit()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm">查询</button>
+        </div>
+    </div>
+
+    <div id="audit-results">
+        <div class="text-center text-gray-400 py-12" hx-get="/api/audit?limit=100" hx-trigger="load" hx-swap="innerHTML">加载中...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadAudit() {
+    const table = document.getElementById('audit-table').value;
+    const recordId = document.getElementById('audit-record-id').value;
+
+    let url = '/api/audit?limit=100';
+    if (table) url += '&table_name=' + table;
+    if (recordId) url += '&record_id=' + recordId;
+
+    document.getElementById('audit-results').innerHTML = '<div class="text-center text-gray-400 py-12">查询中...</div>';
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.logs.length) {
+                document.getElementById('audit-results').innerHTML =
+                    '<div class="text-center text-gray-400 py-12">暂无审计日志</div>';
+                return;
+            }
+
+            let html = '<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">';
+            html += '<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50">';
+            html += '<tr><th class="px-4 py-2 text-left text-xs text-gray-500">时间</th><th class="px-4 py-2 text-left text-xs text-gray-500">表</th><th class="px-4 py-2 text-left text-xs text-gray-500">记录ID</th><th class="px-4 py-2 text-left text-xs text-gray-500">字段</th><th class="px-4 py-2 text-left text-xs text-gray-500">旧值</th><th class="px-4 py-2 text-left text-xs text-gray-500">新值</th><th class="px-4 py-2 text-left text-xs text-gray-500">操作者</th><th class="px-4 py-2 text-left text-xs text-gray-500">原因</th></tr></thead><tbody>';
+
+            data.logs.forEach(log => {
+                html += `<tr class="border-t border-gray-100 hover:bg-gray-50">
+                    <td class="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">${new Date(log.modified_at).toLocaleString('zh-CN')}</td>
+                    <td class="px-4 py-2 text-xs text-gray-600">${log.table_name}</td>
+                    <td class="px-4 py-2 text-xs text-gray-400 font-mono">${log.record_id.substring(0,8)}...</td>
+                    <td class="px-4 py-2 text-xs text-gray-700 font-mono">${log.field_name}</td>
+                    <td class="px-4 py-2 text-xs text-red-400 font-mono max-w-xs truncate">${truncate(log.old_value, 40)}</td>
+                    <td class="px-4 py-2 text-xs text-green-600 font-mono max-w-xs truncate">${truncate(log.new_value, 40)}</td>
+                    <td class="px-4 py-2 text-xs text-gray-500">${log.modified_by}</td>
+                    <td class="px-4 py-2 text-xs text-gray-400">${log.change_reason || ''}</td>
+                </tr>`;
+            });
+
+            html += '</tbody></table><div class="px-4 py-2 border-t border-gray-200 text-xs text-gray-400">共 ' + data.logs.length + ' 条记录</div></div>';
+            document.getElementById('audit-results').innerHTML = html;
+        });
+}
+
+function truncate(str, len) {
+    if (!str) return 'null';
+    return str.length > len ? str.substring(0, len) + '...' : str;
+}
+</script>
+{% endblock %}

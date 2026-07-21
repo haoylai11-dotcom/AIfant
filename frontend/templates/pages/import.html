@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}导入数据 — 抖音-快手AI数字人短视频内容分析{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-bold text-gray-900">导入数据</h1>
+
+    <!-- Tab navigation -->
+    <div class="flex border-b border-gray-200" id="import-tabs">
+        <button class="px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600" onclick="switchTab('tab-link')">🔗 粘贴链接</button>
+        <button class="px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700" onclick="switchTab('tab-browser')">🌐 浏览器提取</button>
+        <button class="px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700" onclick="switchTab('tab-csv')">📄 CSV上传</button>
+        <button class="px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700" onclick="switchTab('tab-xlsx')">📊 Excel上传</button>
+        <button class="px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700" onclick="switchTab('tab-batch')">📋 批量粘贴</button>
+    </div>
+
+    <!-- Tab: Single Link -->
+    <div id="tab-link" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">粘贴单个视频链接</h2>
+        <p class="text-sm text-gray-500 mb-4">支持抖音和快手的短视频链接。工具会自动解析平台和视频ID。</p>
+        <div class="flex gap-3">
+            <input type="text" id="single-link-input" class="flex-1 border border-gray-300 rounded px-3 py-2 text-sm" placeholder="https://www.douyin.com/video/... 或 https://v.douyin.com/...">
+            <button onclick="importSingleLink()" class="bg-blue-600 text-white px-6 py-2 rounded text-sm hover:bg-blue-700">导入</button>
+        </div>
+
+        <!-- Optional metadata fields -->
+        <div class="mt-4 p-4 border border-gray-100 rounded-lg bg-gray-50">
+            <h3 class="text-sm font-semibold text-gray-700 mb-2">可选元数据（手工补充）</h3>
+            <div class="grid grid-cols-3 gap-3">
+                <div><label class="block text-xs text-gray-500">搜索关键词</label><input id="link-keyword" type="text" class="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="如: AI数字人"></div>
+                <div><label class="block text-xs text-gray-500">搜索排名</label><input id="link-rank" type="number" class="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="如: 3"></div>
+                <div><label class="block text-xs text-gray-500">排序方式</label><select id="link-sort" class="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="comprehensive">综合</option><option value="hot">热门</option><option value="latest">最新</option></select></div>
+            </div>
+        </div>
+        <div id="link-result" class="mt-3 text-sm"></div>
+    </div>
+
+    <!-- Tab: Browser Extract (hidden) -->
+    <div id="tab-browser" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6" style="display:none;">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">🌐 浏览器页面字段提取</h2>
+
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <h3 class="text-sm font-semibold text-yellow-800">使用方式</h3>
+            <ol class="text-xs text-yellow-700 mt-1 space-y-1 list-decimal list-inside">
+                <li>在<b>已登录的浏览器</b>中打开抖音或快手公开视频页面</li>
+                <li>打开浏览器开发者工具 (F12) → Console</li>
+                <li>粘贴下方JavaScript脚本并运行</li>
+                <li>将输出的JSON结果复制到下方文本框</li>
+                <li>点击"导入"</li>
+            </ol>
+        </div>
+
+        <details class="mb-4">
+            <summary class="text-sm text-blue-600 cursor-pointer hover:underline">📋 浏览器提取脚本（点击展开）</summary>
+            <pre class="mt-2 bg-gray-800 text-green-400 text-xs p-3 rounded overflow-x-auto" style="max-height: 200px;">// === 复制以下全部内容到浏览器 Console ===
+(function() {
+  const result = {
+    url: window.location.href,
+    title: document.title,
+    platform: window.location.hostname.includes('douyin.com') ? 'douyin' : 'kuaishou',
+    // 以下字段请根据页面实际显示内容手工补充：
+    description: '',
+    hashtags: [],
+    publish_time: '',
+    duration: 0,
+    author_name: '',
+    author_id: '',
+    follower_count: null,
+    verified: false,
+    like_count: null,
+    comment_count: null,
+    share_count: null,
+    favorite_count: null,
+    view_count: null,
+    comments: [],
+    search_keyword: '',
+    search_rank: null,
+    sort_mode: 'comprehensive'
+  };
+  console.log(JSON.stringify(result, null, 2));
+  return result;
+})();</pre>
+        </details>
+
+        <textarea id="browser-json-input" class="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono" rows="12" placeholder='粘贴浏览器Console输出的JSON...'></textarea>
+        <button onclick="importBrowserExtract()" class="mt-3 bg-blue-600 text-white px-6 py-2 rounded text-sm hover:bg-blue-700">导入浏览器提取数据</button>
+        <div id="browser-result" class="mt-3 text-sm"></div>
+    </div>
+
+    <!-- Tab: CSV Upload (hidden) -->
+    <div id="tab-csv" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6" style="display:none;">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">📄 CSV 批量导入</h2>
+        <div class="flex gap-3 mb-3">
+            <a href="/api/import/template/csv" class="text-sm text-blue-600 hover:underline">📥 下载CSV模板</a>
+        </div>
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center" id="csv-drop-zone">
+            <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="uploadCSV()">
+            <button onclick="document.getElementById('csv-file-input').click()" class="bg-gray-100 border border-gray-300 rounded px-6 py-3 text-sm hover:bg-gray-200">
+                📁 选择CSV文件
+            </button>
+            <p class="text-xs text-gray-400 mt-2">或拖拽CSV文件到此处</p>
+            <p class="text-xs text-gray-400">列名支持中英文（平台/platform, video_url/视频链接 等）</p>
+        </div>
+        <div id="csv-result" class="mt-3"></div>
+    </div>
+
+    <!-- Tab: XLSX Upload (hidden) -->
+    <div id="tab-xlsx" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6" style="display:none;">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">📊 Excel 批量导入</h2>
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+            <input type="file" id="xlsx-file-input" accept=".xlsx,.xls" class="hidden" onchange="uploadXLSX()">
+            <button onclick="document.getElementById('xlsx-file-input').click()" class="bg-gray-100 border border-gray-300 rounded px-6 py-3 text-sm hover:bg-gray-200">
+                📁 选择Excel文件
+            </button>
+            <p class="text-xs text-gray-400 mt-2">支持 .xlsx / .xls 格式，默认读取第一个工作表</p>
+        </div>
+        <div id="xlsx-result" class="mt-3"></div>
+    </div>
+
+    <!-- Tab: Batch URL paste (hidden) -->
+    <div id="tab-batch" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6" style="display:none;">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">📋 批量粘贴链接</h2>
+        <p class="text-sm text-gray-500 mb-3">每行一个视频链接，支持混合抖音和快手链接</p>
+        <textarea id="batch-url-input" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" rows="8" placeholder="https://www.douyin.com/video/123...
+https://v.kuaishou.com/abc...
+https://www.douyin.com/video/456..."></textarea>
+        <button onclick="importBatchLinks()" class="mt-3 bg-blue-600 text-white px-6 py-2 rounded text-sm hover:bg-blue-700">批量导入</button>
+        <div id="batch-result" class="mt-3 text-sm"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(tabId) {
+    // Hide all tabs
+    ['tab-link','tab-browser','tab-csv','tab-xlsx','tab-batch'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+    });
+    // Show selected
+    document.getElementById(tabId).style.display = 'block';
+    // Update tab buttons
+    const buttons = document.querySelectorAll('#import-tabs button');
+    buttons.forEach(btn => {
+        btn.className = 'px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700';
+    });
+    const activeIdx = {'tab-link':0,'tab-browser':1,'tab-csv':2,'tab-xlsx':3,'tab-batch':4}[tabId];
+    buttons[activeIdx].className = 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600';
+}
+
+function importSingleLink() {
+    const url = document.getElementById('single-link-input').value.trim();
+    if (!url) { showToast('请输入视频链接', 'error'); return; }
+
+    const metadata = {};
+    const kw = document.getElementById('link-keyword').value.trim();
+    const rank = document.getElementById('link-rank').value.trim();
+    const sort = document.getElementById('link-sort').value;
+    if (kw) metadata.collection_keyword = kw;
+    if (rank) metadata.search_result_rank = parseInt(rank);
+    if (sort) metadata.search_sort_mode = sort;
+
+    document.getElementById('link-result').innerHTML = '<span class="text-blue-600">导入中...</span>';
+
+    fetch('/api/videos/single-link', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url, metadata})
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            document.getElementById('link-result').innerHTML =
+                '<span class="text-green-600">✓ 导入成功! 视频ID: ' + data.video_id + '</span>'
+                + (data.error ? ' <span class="text-yellow-600">(' + data.error + ')</span>' : '');
+            document.getElementById('single-link-input').value = '';
+        } else {
+            document.getElementById('link-result').innerHTML =
+                '<span class="text-red-600">✗ ' + (data.error || '导入失败') + '</span>';
+        }
+    }).catch(err => {
+        document.getElementById('link-result').innerHTML = '<span class="text-red-600">请求失败</span>';
+    });
+}
+
+function importBrowserExtract() {
+    const raw = document.getElementById('browser-json-input').value.trim();
+    if (!raw) { showToast('请粘贴JSON数据', 'error'); return; }
+
+    let jsonData;
+    try { jsonData = JSON.parse(raw); } catch(e) {
+        document.getElementById('browser-result').innerHTML = '<span class="text-red-600">JSON解析失败: ' + e.message + '</span>';
+        return;
+    }
+
+    document.getElementById('browser-result').innerHTML = '<span class="text-blue-600">导入中...</span>';
+
+    fetch('/api/videos/browser-extract', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({json_data: jsonData})
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            document.getElementById('browser-result').innerHTML =
+                '<span class="text-green-600">✓ 导入成功! 视频ID: ' + data.video_id
+                + ' · 评论: ' + (data.comments_imported || 0) + '条</span>'
+                + (data.is_new ? ' (新建)' : ' (已存在)');
+        } else {
+            document.getElementById('browser-result').innerHTML =
+                '<span class="text-red-600">✗ 导入失败: ' + JSON.stringify(data) + '</span>';
+        }
+    }).catch(err => {
+        document.getElementById('browser-result').innerHTML = '<span class="text-red-600">请求失败</span>';
+    });
+}
+
+function uploadCSV() {
+    const file = document.getElementById('csv-file-input').files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    document.getElementById('csv-result').innerHTML = '<span class="text-blue-600">上传中...</span>';
+
+    fetch('/api/import/csv', {method: 'POST', body: formData})
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('csv-result').innerHTML = renderImportResult(data);
+        })
+        .catch(err => {
+            document.getElementById('csv-result').innerHTML = '<span class="text-red-600">上传失败</span>';
+        });
+}
+
+function uploadXLSX() {
+    const file = document.getElementById('xlsx-file-input').files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    document.getElementById('xlsx-result').innerHTML = '<span class="text-blue-600">上传中...</span>';
+
+    fetch('/api/import/xlsx', {method: 'POST', body: formData})
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('xlsx-result').innerHTML = renderImportResult(data);
+        })
+        .catch(err => {
+            document.getElementById('xlsx-result').innerHTML = '<span class="text-red-600">上传失败</span>';
+        });
+}
+
+function importBatchLinks() {
+    const text = document.getElementById('batch-url-input').value.trim();
+    if (!text) return;
+
+    const urls = text.split('\n').map(s => s.trim()).filter(s => s);
+    const results = [];
+    document.getElementById('batch-result').innerHTML =
+        '<span class="text-blue-600">正在导入 ' + urls.length + ' 个链接...</span>';
+
+    let completed = 0;
+    urls.forEach(url => {
+        fetch('/api/videos/single-link', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url, metadata: {}})
+        }).then(r => r.json()).then(data => {
+            completed++;
+            results.push(data);
+            if (completed === urls.length) {
+                const success = results.filter(r => r.success).length;
+                const dup = results.filter(r => r.error && r.error.includes('already exists')).length;
+                document.getElementById('batch-result').innerHTML =
+                    '<span class="text-green-600">完成: ' + success + ' 新建, ' + dup + ' 已存在, '
+                    + (urls.length - success - dup) + ' 失败</span>';
+            }
+        });
+    });
+}
+
+function renderImportResult(data) {
+    let html = '<div class="space-y-1">';
+    html += '<span class="text-green-600 font-medium">✓ 导入完成</span> ';
+    html += '<span class="text-sm text-gray-600">总计 ' + data.total_rows + ' 行 | ';
+    html += '新建 ' + data.imported + ' 个视频 | ';
+    html += '跳过重复 ' + data.skipped_duplicates + ' 个</span>';
+    if (data.errors && data.errors.length > 0) {
+        html += '<div class="mt-2"><span class="text-red-600 text-sm">错误 (' + data.errors.length + ' 条):</span>';
+        html += '<ul class="text-xs text-red-500 list-disc list-inside">';
+        data.errors.slice(0, 5).forEach(e => {
+            html += '<li>' + (e.error || JSON.stringify(e)) + '</li>';
+        });
+        if (data.errors.length > 5) html += '<li>...及其他 ' + (data.errors.length - 5) + ' 条错误</li>';
+        html += '</ul></div>';
+    }
+    html += '</div>';
+    return html;
+}
+</script>
+{% endblock %}

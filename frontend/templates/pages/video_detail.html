@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+{% block title %}视频详情 — 抖音-快手AI数字人短视频内容分析{% endblock %}
+
+{% block content %}
+<div class="space-y-6" id="video-detail">
+    <div class="flex items-center gap-3">
+        <a href="/videos" class="text-blue-600 text-sm hover:underline">← 返回列表</a>
+        <h1 class="text-xl font-bold text-gray-900">视频详情</h1>
+        <span id="video-platform-badge"></span>
+    </div>
+
+    <!-- Loading state -->
+    <div id="detail-content" class="text-center text-gray-400 py-12">
+        加载中...
+    </div>
+
+    <!-- Metric snapshots section -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6" id="snapshots-section" style="display:none;">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">📊 指标快照</h2>
+            <button onclick="showSnapshotForm()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">+ 新建快照</button>
+        </div>
+        <div id="snapshots-table"></div>
+
+        <!-- Snapshot form (hidden by default) -->
+        <div id="snapshot-form" class="mt-4 p-4 border border-blue-200 bg-blue-50 rounded-lg" style="display:none;">
+            <h3 class="text-sm font-semibold mb-3">新建指标快照</h3>
+            <div class="grid grid-cols-5 gap-3 mb-3">
+                <div><label class="block text-xs text-gray-500">点赞数</label><input id="snap-like" type="number" class="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="留空=不可见"></div>
+                <div><label class="block text-xs text-gray-500">评论数</label><input id="snap-comment" type="number" class="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="留空=不可见"></div>
+                <div><label class="block text-xs text-gray-500">分享数</label><input id="snap-share" type="number" class="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="留空=不可见"></div>
+                <div><label class="block text-xs text-gray-500">收藏数</label><input id="snap-favorite" type="number" class="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="留空=不可见"></div>
+                <div><label class="block text-xs text-gray-500">播放数</label><input id="snap-view" type="number" class="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="留空=不可见"></div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="createSnapshot()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">保存快照</button>
+                <button onclick="hideSnapshotForm()" class="bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm">取消</button>
+            </div>
+            <div id="snap-result" class="text-sm mt-2"></div>
+        </div>
+    </div>
+
+    <!-- Audit log section -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">🔍 修改日志</h2>
+        <div id="audit-log-content">加载中...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const videoId = window.location.pathname.split('/').pop();
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadVideoDetail();
+    loadSnapshots();
+    loadAuditLogs();
+});
+
+function loadVideoDetail() {
+    fetch('/api/videos/' + videoId)
+        .then(r => r.json())
+        .then(video => {
+            const platform = video.platform === 'douyin' ? '抖音' : '快手';
+            const platformColor = video.platform === 'douyin' ? 'text-blue-600' : 'text-orange-600';
+            document.getElementById('video-platform-badge').innerHTML =
+                `<span class="${platformColor} text-sm font-medium">${platform}</span>`;
+
+            let html = `
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+                <!-- Video info section -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-gray-500">视频ID (${platform})</label>
+                        <code class="text-sm text-gray-800">${video.platform_video_id}</code>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-gray-500">链接</label>
+                        <a href="${video.video_url || '#'}" target="_blank" class="text-sm text-blue-600 break-all">${video.video_url || '—'}</a>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-gray-500">标题</label>
+                        <input type="text" id="field-video_title" value="${escapeHtml(video.video_title || '')}" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('video_title', this.value)">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">发布时间</label>
+                        <input type="text" id="field-publish_time" value="${video.publish_time || ''}" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('publish_time', this.value)">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">时长(秒)</label>
+                        <input type="number" id="field-duration_seconds" value="${video.duration_seconds || ''}" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('duration_seconds', this.value)">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-gray-500">描述</label>
+                        <textarea id="field-video_description" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" rows="2" onchange="saveField('video_description', this.value)">${escapeHtml(video.video_description || '')}</textarea>
+                    </div>
+                </div>
+
+                <!-- Author info -->
+                <hr class="border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-700">发布者信息</h3>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">作者</label>
+                        <div class="text-sm text-gray-800">${video.author_name || '—'}</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">粉丝数</label>
+                        <div class="text-sm text-gray-800">${video.follower_count != null ? video.follower_count.toLocaleString() : '—'}</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">认证</label>
+                        <div class="text-sm text-gray-800">${video.account_verified ? '✓ 已认证' : '✗ 未认证/未知'}</div>
+                    </div>
+                </div>
+
+                <!-- Collection metadata -->
+                <hr class="border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-700">采集信息</h3>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">采集方式</label>
+                        <div class="text-sm text-gray-800">${video.collection_method}</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">数据来源</label>
+                        <div class="text-sm text-gray-800">${video.data_source}</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">首次采集</label>
+                        <div class="text-sm text-gray-800">${video.first_collected_at ? new Date(video.first_collected_at).toLocaleString('zh-CN') : '—'}</div>
+                    </div>
+                </div>
+
+                <!-- Verification & availability -->
+                <hr class="border-gray-100">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">复核状态</label>
+                        <select id="field-verification_status" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('verification_status', this.value)">
+                            <option value="unverified" ${video.verification_status === 'unverified' ? 'selected' : ''}>待复核</option>
+                            <option value="verified" ${video.verification_status === 'verified' ? 'selected' : ''}>已复核</option>
+                            <option value="needs_review" ${video.verification_status === 'needs_review' ? 'selected' : ''}>需再审</option>
+                            <option value="flagged" ${video.verification_status === 'flagged' ? 'selected' : ''}>已标记</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">不可用原因</label>
+                        <select id="field-unavailable_reason" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('unavailable_reason', this.value)">
+                            <option value="" ${!video.unavailable_reason ? 'selected' : ''}>— 可用 —</option>
+                            <option value="deleted_by_author" ${video.unavailable_reason === 'deleted_by_author' ? 'selected' : ''}>作者删除</option>
+                            <option value="removed_by_platform" ${video.unavailable_reason === 'removed_by_platform' ? 'selected' : ''}>平台下架</option>
+                            <option value="private_or_permission_changed" ${video.unavailable_reason === 'private_or_permission_changed' ? 'selected' : ''}>权限变更为私密</option>
+                            <option value="link_invalid" ${video.unavailable_reason === 'link_invalid' ? 'selected' : ''}>链接失效</option>
+                            <option value="region_or_login_restricted" ${video.unavailable_reason === 'region_or_login_restricted' ? 'selected' : ''}>地区/登录限制</option>
+                            <option value="unknown" ${video.unavailable_reason === 'unknown' ? 'selected' : ''}>未知</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Coding fields -->
+                <hr class="border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-700">内容编码字段</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">AI角色出现</label>
+                        <select id="field-ai_character_present" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('ai_character_present', this.value)">
+                            <option value="" ${video.ai_character_present === null ? 'selected' : ''}>— 未编码 —</option>
+                            <option value="true" ${video.ai_character_present === true ? 'selected' : ''}>是</option>
+                            <option value="false" ${video.ai_character_present === false ? 'selected' : ''}>否</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">AI身份披露</label>
+                        <select id="field-ai_identity_disclosed" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('ai_identity_disclosed', this.value)">
+                            <option value="" ${video.ai_identity_disclosed === null ? 'selected' : ''}>— 未编码 —</option>
+                            <option value="true" ${video.ai_identity_disclosed === true ? 'selected' : ''}>是</option>
+                            <option value="false" ${video.ai_identity_disclosed === false ? 'selected' : ''}>否</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">亲属称谓出现</label>
+                        <select id="field-kinship_address_present" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('kinship_address_present', this.value)">
+                            <option value="" ${video.kinship_address_present === null ? 'selected' : ''}>— 未编码 —</option>
+                            <option value="true" ${video.kinship_address_present === true ? 'selected' : ''}>是</option>
+                            <option value="false" ${video.kinship_address_present === false ? 'selected' : ''}>否</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">产品类别</label>
+                        <input type="text" id="field-product_category" value="${escapeHtml(video.product_category || '')}" class="border border-gray-300 rounded px-3 py-1.5 text-sm" placeholder="如：保健品、日用品" onchange="saveField('product_category', this.value)">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">产品名称</label>
+                        <input type="text" id="field-product_name" value="${escapeHtml(video.product_name || '')}" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('product_name', this.value)">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">健康声称</label>
+                        <select id="field-health_claim_present" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('health_claim_present', this.value)">
+                            <option value="" ${video.health_claim_present === null ? 'selected' : ''}>— 未编码 —</option>
+                            <option value="true" ${video.health_claim_present === true ? 'selected' : ''}>是</option>
+                            <option value="false" ${video.health_claim_present === false ? 'selected' : ''}>否</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">购买指引</label>
+                        <select id="field-purchase_instruction_present" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('purchase_instruction_present', this.value)">
+                            <option value="" ${video.purchase_instruction_present === null ? 'selected' : ''}>— 未编码 —</option>
+                            <option value="true" ${video.purchase_instruction_present === true ? 'selected' : ''}>是</option>
+                            <option value="false" ${video.purchase_instruction_present === false ? 'selected' : ''}>否</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">情感诉求</label>
+                        <select id="field-emotional_appeal" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('emotional_appeal', this.value)">
+                            <option value="" ${!video.emotional_appeal ? 'selected' : ''}>— 未编码 —</option>
+                            <option value="nostalgia" ${video.emotional_appeal === 'nostalgia' ? 'selected' : ''}>怀旧</option>
+                            <option value="warmth" ${video.emotional_appeal === 'warmth' ? 'selected' : ''}>温暖</option>
+                            <option value="fear" ${video.emotional_appeal === 'fear' ? 'selected' : ''}>恐惧</option>
+                            <option value="humor" ${video.emotional_appeal === 'humor' ? 'selected' : ''}>幽默</option>
+                            <option value="none" ${video.emotional_appeal === 'none' ? 'selected' : ''}>无明显情感</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">理性诉求</label>
+                        <select id="field-rational_appeal" class="border border-gray-300 rounded px-3 py-1.5 text-sm" onchange="saveField('rational_appeal', this.value)">
+                            <option value="" ${!video.rational_appeal ? 'selected' : ''}>— 未编码 —</option>
+                            <option value="price" ${video.rational_appeal === 'price' ? 'selected' : ''}>价格</option>
+                            <option value="efficacy" ${video.rational_appeal === 'efficacy' ? 'selected' : ''}>功效</option>
+                            <option value="quality" ${video.rational_appeal === 'quality' ? 'selected' : ''}>质量</option>
+                            <option value="comparison" ${video.rational_appeal === 'comparison' ? 'selected' : ''}>对比</option>
+                            <option value="none" ${video.rational_appeal === 'none' ? 'selected' : ''}>无明显理性</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-gray-500">编码备注</label>
+                        <textarea id="field-coding_notes" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" rows="2" onchange="saveField('coding_notes', this.value)">${escapeHtml(video.coding_notes || '')}</textarea>
+                    </div>
+                </div>
+            </div>`;
+            document.getElementById('detail-content').innerHTML = html;
+            document.getElementById('snapshots-section').style.display = 'block';
+        })
+        .catch(err => {
+            document.getElementById('detail-content').innerHTML =
+                '<div class="text-red-500 py-8">加载失败: ' + err.message + '</div>';
+        });
+}
+
+function saveField(fieldName, value) {
+    const body = {};
+    // Convert to proper types
+    if (value === '') {
+        body[fieldName] = null;
+    } else if (value === 'true') {
+        body[fieldName] = true;
+    } else if (value === 'false') {
+        body[fieldName] = false;
+    } else if (!isNaN(value) && fieldName === 'duration_seconds') {
+        body[fieldName] = parseInt(value);
+    } else {
+        body[fieldName] = value;
+    }
+
+    fetch('/api/videos/' + videoId + '?modified_by=web_editor', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    }).then(r => r.json()).then(data => {
+        showToast('已保存: ' + fieldName, 'success');
+        loadAuditLogs();
+    }).catch(err => {
+        showToast('保存失败: ' + err.message, 'error');
+    });
+}
+
+function loadSnapshots() {
+    fetch('/api/videos/' + videoId + '/snapshots')
+        .then(r => r.json())
+        .then(snapshots => {
+            if (!snapshots.length) {
+                document.getElementById('snapshots-table').innerHTML =
+                    '<div class="text-sm text-gray-400 py-4">暂无指标快照</div>';
+                return;
+            }
+            let html = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50">
+                <tr><th class="px-3 py-2 text-left text-xs text-gray-500">时间</th>
+                <th class="px-3 py-2 text-left text-xs text-gray-500">点赞</th>
+                <th class="px-3 py-2 text-left text-xs text-gray-500">评论</th>
+                <th class="px-3 py-2 text-left text-xs text-gray-500">分享</th>
+                <th class="px-3 py-2 text-left text-xs text-gray-500">收藏</th>
+                <th class="px-3 py-2 text-left text-xs text-gray-500">播放</th></tr></thead><tbody>`;
+            snapshots.forEach(s => {
+                html += `<tr class="border-t border-gray-100"><td class="px-3 py-2 text-sm text-gray-600">${new Date(s.collected_at).toLocaleString('zh-CN')}</td>
+                    <td class="px-3 py-2 text-sm">${s.like_count != null ? s.like_count.toLocaleString() : '<span class="text-gray-400 italic text-xs">null</span>'}</td>
+                    <td class="px-3 py-2 text-sm">${s.comment_count != null ? s.comment_count.toLocaleString() : '<span class="text-gray-400 italic text-xs">null</span>'}</td>
+                    <td class="px-3 py-2 text-sm">${s.share_count != null ? s.share_count.toLocaleString() : '<span class="text-gray-400 italic text-xs">null</span>'}</td>
+                    <td class="px-3 py-2 text-sm">${s.favorite_count != null ? s.favorite_count.toLocaleString() : '<span class="text-gray-400 italic text-xs">null</span>'}</td>
+                    <td class="px-3 py-2 text-sm">${s.view_count != null ? s.view_count.toLocaleString() : '<span class="text-gray-400 italic text-xs">null</span>'}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('snapshots-table').innerHTML = html;
+        });
+}
+
+function showSnapshotForm() {
+    document.getElementById('snapshot-form').style.display = 'block';
+}
+
+function hideSnapshotForm() {
+    document.getElementById('snapshot-form').style.display = 'none';
+}
+
+function createSnapshot() {
+    const body = {
+        like_count: parseOrNull(document.getElementById('snap-like').value),
+        comment_count: parseOrNull(document.getElementById('snap-comment').value),
+        share_count: parseOrNull(document.getElementById('snap-share').value),
+        favorite_count: parseOrNull(document.getElementById('snap-favorite').value),
+        view_count: parseOrNull(document.getElementById('snap-view').value),
+        metric_source: 'manual',
+    };
+
+    fetch('/api/videos/' + videoId + '/snapshots', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    }).then(r => r.json()).then(data => {
+        document.getElementById('snap-result').innerHTML =
+            '<span class="text-green-600">快照已创建</span>';
+        hideSnapshotForm();
+        loadSnapshots();
+        // Clear form
+        ['snap-like','snap-comment','snap-share','snap-favorite','snap-view'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
+    }).catch(err => {
+        document.getElementById('snap-result').innerHTML =
+            '<span class="text-red-600">创建失败: ' + err.message + '</span>';
+    });
+}
+
+function loadAuditLogs() {
+    fetch('/api/audit?record_id=' + videoId)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.logs.length) {
+                document.getElementById('audit-log-content').innerHTML =
+                    '<div class="text-sm text-gray-400">暂无修改记录</div>';
+                return;
+            }
+            let html = '<div class="space-y-2">';
+            data.logs.forEach(log => {
+                html += `<div class="flex items-start gap-3 text-sm py-2 border-b border-gray-100">
+                    <span class="text-gray-400 text-xs whitespace-nowrap">${new Date(log.modified_at).toLocaleString('zh-CN')}</span>
+                    <span class="text-gray-600 font-mono text-xs">${log.field_name}</span>
+                    <span class="text-red-400 text-xs line-through max-w-xs truncate">${truncate(log.old_value, 50)}</span>
+                    <span class="text-gray-400">→</span>
+                    <span class="text-green-600 text-xs max-w-xs truncate">${truncate(log.new_value, 50)}</span>
+                    <span class="text-gray-400 text-xs">by ${log.modified_by}</span>
+                </div>`;
+            });
+            html += '</div>';
+            document.getElementById('audit-log-content').innerHTML = html;
+        });
+}
+
+function parseOrNull(val) {
+    if (val === '' || val === null || val === undefined) return null;
+    return parseInt(val);
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function truncate(str, len) {
+    if (!str) return 'null';
+    return str.length > len ? str.substring(0, len) + '...' : str;
+}
+
+function showToast(msg, type) {
+    const container = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = 'px-4 py-2 rounded shadow-lg text-sm text-white ' + (type === 'success' ? 'bg-green-600' : 'bg-red-600');
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+}
+</script>
+{% endblock %}

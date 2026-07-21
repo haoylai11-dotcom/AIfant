@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:///./dyks_data.db
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - MEDIA_STORAGE_PATH=/app/backend/media_storage
+    volumes:
+      - sqlite_data:/app/backend
+    restart: unless-stopped
+
+volumes:
+  sqlite_data:
